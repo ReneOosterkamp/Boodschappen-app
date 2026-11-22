@@ -13,11 +13,11 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     defaultConfig {
-        applicationId = "nl.reneoosterkamp.boodschappen.v3"
+        applicationId = "nl.rene.boodschappen"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "3.0"
+        versionCode = 5
+        versionName = "5.0"
     }
     buildFeatures { compose = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
