@@ -13,7 +13,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     defaultConfig {
-        applicationId = "nl.rene.boodschappen"
+        applicationId = "nl.reneoosterkamp.boodschappen"
         minSdk = 26
         targetSdk = 35
         versionCode = 5
