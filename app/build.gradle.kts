@@ -16,10 +16,23 @@ android {
         applicationId = "nl.reneoosterkamp.boodschappen"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "6.0"
+        versionCode = 7
+        versionName = "6.1"
     }
     buildFeatures { compose = true }
+    signingConfigs {
+        create("stableDebug") {
+            storeFile = file("keystore/oosterkamp-grocery.jks")
+            storePassword = "Renegrocery2026"
+            keyAlias = "grocery"
+            keyPassword = "Renegrocery2026"
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("stableDebug")
+        }
+    }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 

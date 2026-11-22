@@ -14,3 +14,8 @@ BOODSCHAPPEN & WEEKMENU - VERSIE 6
 
 Upload de inhoud over het bestaande GitHub-project. Laat .github staan.
 Visual in this file was generated with Microsoft Copilot.
+
+VERSIE 6.1 - VASTE ONDERTEKENING
+Deze build gebruikt voortaan een vaste private signing key. Daardoor worden toekomstige APK-updates door Android als updates van dezelfde app geaccepteerd.
+Belangrijk: de nu geinstalleerde app is nog met een tijdelijke GitHub Actions debug-key ondertekend. Die moet voor deze overgang eenmalig worden verwijderd. Installeer daarna versie 6.1. Vanaf versie 6.1 hoeft verwijderen niet meer, zolang dezelfde signing key behouden blijft.
+De signing key is uitsluitend bedoeld voor deze prive-app en deze private repository. Maak een lokale backup van app/keystore/oosterkamp-grocery.jks.
