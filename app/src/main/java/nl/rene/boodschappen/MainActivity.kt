@@ -44,17 +44,32 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable private fun AppTheme(content:@Composable()->Unit) {
+@Composable
+private fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = lightColorScheme(primary=Green, secondary=Green, background=Canvas, surface=Color.White, onPrimary=Color.White, onBackground=Ink),
+        colorScheme = lightColorScheme(
+            primary = Green,
+            secondary = Green,
+            background = Canvas,
+            surface = Color.White,
+            onPrimary = Color.White,
+            onBackground = Ink
+        ),
         typography = Typography(
-            headlineLarge = MaterialTheme.typography.headlineLarge.copy(fontSize=38.sp, fontWeight=FontWeight.Bold),
-            titleLarge = MaterialTheme.typography.titleLarge.copy(fontWeight=FontWeight.Bold),
-            bodyLarge = MaterialTheme.typography.bodyLarge.copy(fontSize=17.sp)
-        ), content=content
+            headlineLarge = MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 38.sp,
+                fontWeight = FontWeight.Bold
+            ),
+            titleLarge = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            bodyLarge = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = 17.sp
+            )
+        ),
+        content = content
     )
 }
-
 @Composable fun GroceryApplication(context: Context) {
     val store = remember { AppStore(context) }
     var stateTick by remember { mutableIntStateOf(0) }
