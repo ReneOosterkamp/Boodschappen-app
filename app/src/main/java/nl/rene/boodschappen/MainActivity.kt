@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,198 +18,75 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONArray
 import org.json.JSONObject
-import java.text.SimpleDateFormat
 import java.util.*
 
-private val Green = Color(0xFF087A43)
-private val PaleGreen = Color(0xFFEAF6EE)
-private val Canvas = Color(0xFFF7F7F5)
-private val Ink = Color(0xFF101820)
+private val Green=Color(0xFF087A43);private val Pale=Color(0xFFEAF6EE);private val Canvas=Color(0xFFF7F7F5);private val Ink=Color(0xFF101820)
+data class Product(val name:String,val uses:Int=0,val quantity:String="")
+data class Grocery(val id:Long,val name:String,val quantity:String="",val checked:Boolean=false)
+data class GroceryList(val id:Long,val name:String,val items:List<Grocery> = emptyList())
+data class MenuDay(val day:String,val meal:String="",val ingredients:String="")
+data class WeekMenu(val id:Long,val name:String,val days:List<MenuDay>)
+private val dayNames=listOf("Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag","Zondag")
 
-data class Product(val name:String, val uses:Int=0, val quantity:String="")
-data class Grocery(val id:Long, val name:String, val quantity:String="", val checked:Boolean=false)
-data class GroceryList(val id:Long, val name:String, val items:List<Grocery> = emptyList())
-data class MenuDay(val day:String, val meal:String="", val ingredients:String="")
+class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{AppTheme{GroceryApp(this)}}}}
+@Composable private fun AppTheme(content:@Composable ()->Unit){MaterialTheme(colorScheme=lightColorScheme(primary=Green,background=Canvas,surface=Color.White,onBackground=Ink),typography=Typography(headlineLarge=MaterialTheme.typography.headlineLarge.copy(fontSize=32.sp,fontWeight=FontWeight.Bold),titleLarge=MaterialTheme.typography.titleLarge.copy(fontWeight=FontWeight.Bold)),content=content)}
 
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent { AppTheme { GroceryApplication(this) } }
-    }
-}
+@Composable fun GroceryApp(context:Context){val store=remember{AppStore(context)};var tab by remember{mutableIntStateOf(0)};var listId by remember{mutableLongStateOf(store.lists.first().id)};Scaffold(containerColor=Canvas,bottomBar={BottomBar(tab){tab=it}}){pad->Box(Modifier.padding(pad)){when(tab){0->ShoppingScreen(store,listId,{listId=it});1->WeekMenuScreen(store,listId);else->ListsScreen(store,listId,{listId=it})}}}}
+@Composable fun PageTitle(title:String){Text(title,style=MaterialTheme.typography.headlineLarge,modifier=Modifier.padding(horizontal=18.dp,vertical=12.dp))}
 
-@Composable
-private fun AppTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = lightColorScheme(primary=Green, secondary=Green, background=Canvas, surface=Color.White, onPrimary=Color.White, onBackground=Ink),
-        typography = Typography(
-            headlineLarge = MaterialTheme.typography.headlineLarge.copy(fontSize=38.sp,fontWeight=FontWeight.Bold),
-            titleLarge = MaterialTheme.typography.titleLarge.copy(fontWeight=FontWeight.Bold),
-            bodyLarge = MaterialTheme.typography.bodyLarge.copy(fontSize=17.sp)
-        ),
-        content=content
-    )
-}
-
-@Composable
-fun GroceryApplication(context:Context) {
-    val store=remember{AppStore(context)}
-    var tab by remember{mutableIntStateOf(0)}
-    var selectedId by remember{mutableLongStateOf(store.lists.first().id)}
-    Scaffold(containerColor=Canvas,bottomBar={BottomBar(tab){tab=it}}){pad->
-        Box(Modifier.padding(pad).fillMaxSize()){
-            when(tab){
-                0->ShoppingPage(store,selectedId,{selectedId=it})
-                1->WeekMenuPage(store,selectedId)
-                else->ListsPage(store,selectedId,{selectedId=it})
-            }
+@Composable fun ShoppingScreen(store:AppStore,listId:Long,select:(Long)->Unit){val list=store.lists.firstOrNull{it.id==listId}?:store.lists.first();var chooseList by remember{mutableStateOf(false)};var addProduct by remember{mutableStateOf(false)};var newList by remember{mutableStateOf(false)};var showDone by remember{mutableStateOf(false)};val open=list.items.filterNot{it.checked};val done=list.items.filter{it.checked}
+    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=18.dp)){
+        item{PageTitle("Boodschappen")}
+        item{Row(Modifier.padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.weight(1f)){Surface(shape=RoundedCornerShape(16.dp),color=Color.White,modifier=Modifier.fillMaxWidth().clickable{chooseList=true}){Row(Modifier.padding(horizontal=14.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically){Text(list.name,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Default.KeyboardArrowDown,null)}};DropdownMenu(chooseList,{chooseList=false}){store.lists.forEach{l->DropdownMenuItem({Text(l.name)},{select(l.id);chooseList=false})}}};Spacer(Modifier.width(8.dp));FilledIconButton({newList=true}){Icon(Icons.Default.Add,"Nieuwe lijst")}}
         }
+        item{OutlinedButton({addProduct=true},modifier=Modifier.padding(16.dp).fillMaxWidth(),shape=RoundedCornerShape(15.dp)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(8.dp));Text("Product toevoegen…",modifier=Modifier.weight(1f))}}
+        item{CompactHeader("Lijstje",open.size,false){} }
+        item{CompactGroceryList(open,store::toggle,store::remove,store::setQuantity){id,from,to->store.move(list.id,id,from,to)}}
+        if(done.isNotEmpty()){item{CompactHeader("Gepakt",done.size,!showDone){showDone=!showDone}};if(showDone)item{CompactGroceryList(done,store::toggle,store::remove,store::setQuantity,null)};if(showDone)item{TextButton({store.clearDone(list.id)},Modifier.fillMaxWidth()){Text("Afgevinkte verwijderen")}}}
     }
+    if(addProduct)AddProductDialog(store.products,{addProduct=false}){name,qty->store.addGrocery(list.id,name,qty);addProduct=false}
+    if(newList)TextDialog("Nieuwe boodschappenlijst","Naam",{newList=false}){select(store.addList(it));newList=false}
 }
 
-@Composable fun Header(title:String){Column(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=12.dp)){Text(SimpleDateFormat("EEEE  •  d MMMM",Locale("nl","NL")).format(Date()).uppercase(),color=Color.Gray,fontSize=12.sp,letterSpacing=2.sp);Text(title,style=MaterialTheme.typography.headlineLarge)}}
-
-@Composable
-fun ShoppingPage(store:AppStore,selectedId:Long,select:(Long)->Unit){
-    val list=store.lists.firstOrNull{it.id==selectedId}?:store.lists.first()
-    var search by remember{mutableStateOf("")};var quantity by remember{mutableStateOf("")};var listMenu by remember{mutableStateOf(false)};var picker by remember{mutableStateOf(false)};var newList by remember{mutableStateOf(false)}
-    val frequent=store.products.filter{search.isBlank()||it.name.contains(search,true)}.sortedByDescending{it.uses}.take(5)
-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=26.dp)){
-        item{Header("Boodschappen")}
-        item{Row(Modifier.padding(horizontal=20.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.weight(1f)){Surface(shape=RoundedCornerShape(20.dp),color=Color.White,shadowElevation=2.dp,modifier=Modifier.fillMaxWidth().clickable{listMenu=true}){Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.List,null,tint=Green);Spacer(Modifier.width(12.dp));Text(list.name,fontWeight=FontWeight.Bold,fontSize=19.sp,modifier=Modifier.weight(1f));Icon(Icons.Default.KeyboardArrowDown,null)}};DropdownMenu(listMenu,{listMenu=false}){store.lists.forEach{l->DropdownMenuItem({Text(l.name)},{select(l.id);listMenu=false})}}};Spacer(Modifier.width(10.dp));FilledIconButton({newList=true},modifier=Modifier.size(58.dp),colors=IconButtonDefaults.filledIconButtonColors(containerColor=PaleGreen,contentColor=Green)){Icon(Icons.Default.Add,"Nieuwe lijst")}}}
-        item{Column(Modifier.padding(20.dp)){OutlinedTextField(search,{search=it},modifier=Modifier.fillMaxWidth(),singleLine=true,shape=RoundedCornerShape(22.dp),label={Text("Product")},leadingIcon={Icon(Icons.Default.Search,null)});Spacer(Modifier.height(8.dp));OutlinedTextField(quantity,{quantity=it},modifier=Modifier.fillMaxWidth(),singleLine=true,shape=RoundedCornerShape(18.dp),label={Text("Hoeveel, bijvoorbeeld 500 gr of 1 pak")});Button(onClick={if(search.isNotBlank()){store.addGrocery(list.id,search,quantity);search="";quantity=""}},enabled=search.isNotBlank(),modifier=Modifier.fillMaxWidth().padding(top=10.dp)){Icon(Icons.Default.Add,null);Spacer(Modifier.width(6.dp));Text("Direct op lijstje zetten")};OutlinedButton({picker=true},modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Icon(Icons.Default.Checklist,null);Spacer(Modifier.width(7.dp));Text("Kies uit alle producten")}
-            if(frequent.isNotEmpty()){Text("Vaak gebruikt",fontWeight=FontWeight.Bold,fontSize=21.sp,modifier=Modifier.padding(top=20.dp,bottom=8.dp));Column(verticalArrangement=Arrangement.spacedBy(8.dp)){frequent.forEach{p->FrequentRow(p){qty->store.addGrocery(list.id,p.name,qty)}}}}
-        }}
-        val open=list.items.filter{!it.checked};val done=list.items.filter{it.checked}
-        item{SectionTitle("Lijstje",open.size)}
-        item{GroceryCard(open,store::toggleGrocery,store::deleteGrocery,{id,q->store.updateQuantity(list.id,id,q)},{id,d->store.moveGrocery(list.id,id,d)})}
-        if(done.isNotEmpty()){item{SectionTitle("Gepakt",done.size)};item{GroceryCard(done,store::toggleGrocery,store::deleteGrocery,{id,q->store.updateQuantity(list.id,id,q)},null)};item{TextButton({store.clearChecked(list.id)},modifier=Modifier.padding(horizontal=20.dp).fillMaxWidth().background(PaleGreen,RoundedCornerShape(22.dp)).padding(7.dp)){Icon(Icons.Default.Delete,null);Spacer(Modifier.width(8.dp));Text("Afgevinkte verwijderen",color=Green,fontWeight=FontWeight.Bold)}}}
-    }
-    if(picker)ProductPicker(store.products,{picker=false}){chosen->chosen.forEach{(p,q)->store.addGrocery(list.id,p.name,q)};picker=false}
-    if(newList)NameDialog("Nieuwe boodschappenlijst","Naam",{newList=false}){name->val id=store.addList(name);select(id);newList=false}
+@Composable fun CompactHeader(text:String,count:Int,collapsed:Boolean,onClick:()->Unit){Row(Modifier.fillMaxWidth().clickable{onClick()}.padding(horizontal=18.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically){Text("$text ($count)",fontWeight=FontWeight.Bold,fontSize=20.sp,modifier=Modifier.weight(1f));if(text=="Gepakt")Icon(if(collapsed)Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowDown,null)}}
+@Composable fun CompactGroceryList(rows:List<Grocery>,toggle:(Long)->Unit,remove:(Long)->Unit,setQty:(Long,String)->Unit,reorder:((Long,Int,Int)->Unit)?){if(rows.isEmpty()){Text("Nog geen producten",color=Color.Gray,modifier=Modifier.padding(20.dp));return};Surface(Modifier.padding(horizontal=16.dp).fillMaxWidth(),shape=RoundedCornerShape(18.dp),color=Color.White){Column{rows.forEachIndexed{i,g->key(g.id){CompactProductRow(g,i,rows.size,{toggle(g.id)},{remove(g.id)},{setQty(g.id,it)},reorder?.let{{from,to->it(g.id,from,to)}})};if(i<rows.lastIndex)HorizontalDivider(Modifier.padding(start=50.dp),color=Color(0xFFE9E9E9))}}}}
+@Composable fun CompactProductRow(g:Grocery,index:Int,size:Int,toggle:()->Unit,remove:()->Unit,qty:(String)->Unit,reorder:((Int,Int)->Unit)?){val haptics=LocalHapticFeedback.current;var dragging by remember{mutableStateOf(false)};var drag by remember{mutableFloatStateOf(0f)};var editQty by remember{mutableStateOf(false)};var q by remember(g.id,g.quantity){mutableStateOf(g.quantity)};val dragMod=if(reorder!=null)Modifier.pointerInput(g.id){detectDragGesturesAfterLongPress(onDragStart={dragging=true;drag=0f;haptics.performHapticFeedback(HapticFeedbackType.LongPress)},onDragCancel={dragging=false},onDragEnd={dragging=false},onDrag={change,amount->change.consume();drag+=amount.y;val limit=44f;if(drag>limit&&index<size-1){reorder(index,index+1);drag=0f;haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)}else if(drag< -limit&&index>0){reorder(index,index-1);drag=0f;haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)}})}else Modifier
+    Row(Modifier.fillMaxWidth().then(dragMod).graphicsLayer{alpha=if(dragging).65f else 1f}.background(if(dragging)Pale else Color.Transparent).heightIn(min=52.dp).padding(horizontal=6.dp),verticalAlignment=Alignment.CenterVertically){IconButton(toggle,Modifier.size(44.dp)){Icon(if(g.checked)Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,null,tint=Green)};Text(g.name,modifier=Modifier.weight(1f).clickable{toggle()},maxLines=1,textDecoration=if(g.checked)TextDecoration.LineThrough else null,fontSize=16.sp);Text(g.quantity.ifBlank{"Hoeveel"},color=if(g.quantity.isBlank())Color.Gray else Ink,fontSize=14.sp,maxLines=1,modifier=Modifier.clickable{editQty=true}.padding(horizontal=8.dp,vertical=14.dp));if(reorder!=null)Icon(Icons.Default.DragHandle,"Slepen",tint=Color.Gray,modifier=Modifier.padding(horizontal=4.dp));IconButton(remove,Modifier.size(40.dp)){Icon(Icons.Default.Close,"Verwijderen",tint=Color.Gray)}}
+    if(editQty)AlertDialog(onDismissRequest={editQty=false},title={Text(g.name)},text={OutlinedTextField(q,{q=it},label={Text("Hoeveelheid")},singleLine=true)},confirmButton={Button({qty(q);editQty=false}){Text("Opslaan")}},dismissButton={TextButton({editQty=false}){Text("Annuleren")}})
 }
 
-@Composable fun FrequentRow(product:Product,add:(String)->Unit){var qty by remember(product.name){mutableStateOf(product.quantity)};Surface(shape=RoundedCornerShape(18.dp),color=PaleGreen,modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text(product.name,fontWeight=FontWeight.SemiBold);Row(verticalAlignment=Alignment.CenterVertically){OutlinedTextField(qty,{qty=it},label={Text("Hoeveel")},singleLine=true,modifier=Modifier.weight(1f));Spacer(Modifier.width(8.dp));FilledIconButton({add(qty)},modifier=Modifier.size(52.dp)){Icon(Icons.Default.Add,"Direct toevoegen")}}}}}
+@Composable fun AddProductDialog(products:List<Product>,dismiss:()->Unit,add:(String,String)->Unit){var search by remember{mutableStateOf("")};var qty by remember{mutableStateOf("")};val matches=products.filter{search.isBlank()||it.name.contains(search,true)}.sortedWith(compareByDescending<Product>{it.uses}.thenBy{it.name});AlertDialog(onDismissRequest=dismiss,title={Text("Product toevoegen")},text={Column{OutlinedTextField(search,{search=it},label={Text("Zoek of typ product")},singleLine=true,modifier=Modifier.fillMaxWidth());OutlinedTextField(qty,{qty=it},label={Text("Hoeveel, bijvoorbeeld 500 gr")},singleLine=true,modifier=Modifier.fillMaxWidth());Text("Vaak gebruikt / producten",fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=12.dp));LazyColumn(Modifier.heightIn(max=260.dp)){items(matches.take(15),key={it.name}){p->ListItem(headlineContent={Text(p.name)},trailingContent={Text(p.quantity)},modifier=Modifier.clickable{add(p.name,qty.ifBlank{p.quantity})})}}}},confirmButton={Button({add(search.trim(),qty.trim())},enabled=search.isNotBlank()){Text("Toevoegen")}},dismissButton={TextButton(dismiss){Text("Annuleren")}})}
 
-@Composable fun SectionTitle(text:String,count:Int){Row(Modifier.padding(horizontal=20.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically){Text(text,fontWeight=FontWeight.Bold,fontSize=23.sp);Spacer(Modifier.width(10.dp));Surface(color=Color(0xFFE8E8E8),shape=CircleShape){Text("$count",Modifier.padding(horizontal=11.dp,vertical=5.dp),color=Color.DarkGray)}}}
-
-@Composable
-fun GroceryCard(rows:List<Grocery>,toggle:(Long,Long)->Unit,delete:(Long,Long)->Unit,quantity:(Long,String)->Unit,move:((Long,Int)->Unit)?) {
-    if(rows.isEmpty()){Text("Nog geen producten.",color=Color.Gray,modifier=Modifier.padding(horizontal=24.dp,vertical=12.dp));return}
-    var draggingId by remember { mutableStateOf<Long?>(null) }
-    var dragY by remember { mutableFloatStateOf(0f) }
-    val rowStepPx = 112f
-    Surface(Modifier.padding(horizontal=20.dp).fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=Color.White,shadowElevation=1.dp){
-        Column {
-            rows.forEachIndexed { i,g ->
-                key(g.id) {
-                    GroceryRow(
-                        g=g,
-                        isDragging=draggingId==g.id,
-                        toggle={toggle(g.id,0L)},
-                        delete={delete(g.id,0L)},
-                        saveQty={quantity(g.id,it)},
-                        dragEnabled=move!=null,
-                        onDragStart={ draggingId=g.id; dragY=0f },
-                        onDrag={dy ->
-                            if(move!=null){
-                                dragY += dy
-                                if(dragY > rowStepPx && i < rows.lastIndex){ move(g.id,1); dragY=0f }
-                                else if(dragY < -rowStepPx && i > 0){ move(g.id,-1); dragY=0f }
-                            }
-                        },
-                        onDragEnd={ draggingId=null; dragY=0f }
-                    )
-                }
-                if(i<rows.lastIndex) HorizontalDivider(Modifier.padding(start=58.dp),color=Color(0xFFE8E8E8))
-            }
-        }
-    }
+@Composable fun WeekMenuScreen(store:AppStore,listId:Long){val list=store.lists.firstOrNull{it.id==listId}?:store.lists.first();var menuId by remember{mutableLongStateOf(store.weekMenus.first().id)};val menu=store.weekMenus.firstOrNull{it.id==menuId}?:store.weekMenus.first();var choose by remember{mutableStateOf(false)};var editDay by remember{mutableStateOf<MenuDay?>(null)};LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=18.dp)){item{PageTitle("Weekmenu")};item{Box(Modifier.padding(horizontal=16.dp)){Surface(shape=RoundedCornerShape(16.dp),color=Color.White,modifier=Modifier.fillMaxWidth().clickable{choose=true}){Row(Modifier.padding(14.dp)){Text(menu.name,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Icon(Icons.Default.KeyboardArrowDown,null)}};DropdownMenu(choose,{choose=false}){store.weekMenus.forEach{m->DropdownMenuItem({Text(m.name)},{menuId=m.id;choose=false})}}}};item{Spacer(Modifier.height(10.dp))};items(menu.days,key={it.day}){d->Surface(color=Color.White,modifier=Modifier.padding(horizontal=16.dp).fillMaxWidth().clickable{editDay=d}){Row(Modifier.height(58.dp).padding(horizontal=14.dp),verticalAlignment=Alignment.CenterVertically){Text(d.day.take(2),fontWeight=FontWeight.Bold,modifier=Modifier.width(42.dp));Text(d.meal.ifBlank{"+ Gerecht kiezen"},color=if(d.meal.isBlank())Green else Ink,modifier=Modifier.weight(1f),maxLines=1);Icon(Icons.Default.KeyboardArrowRight,null)}};HorizontalDivider(Modifier.padding(horizontal=16.dp),color=Color(0xFFE9E9E9))}}
+    editDay?.let{d->DayDialog(d,store.products,{editDay=null}){meal,ingredients,chosen->store.updateDay(menu.id,d.day,meal,ingredients);chosen.forEach{(p,q)->store.addGrocery(list.id,p.name,q)};editDay=null}}
 }
+@Composable fun DayDialog(day:MenuDay,products:List<Product>,dismiss:()->Unit,save:(String,String,List<Pair<Product,String>>)->Unit){var meal by remember{mutableStateOf(day.meal)};var notes by remember{mutableStateOf(day.ingredients)};var picker by remember{mutableStateOf(false)};var chosen by remember{mutableStateOf<List<Pair<Product,String>>>(emptyList())};AlertDialog(onDismissRequest=dismiss,title={Text(day.day)},text={Column{OutlinedTextField(meal,{meal=it},label={Text("Gerecht")},modifier=Modifier.fillMaxWidth());OutlinedTextField(notes,{notes=it},label={Text("Notitie")},modifier=Modifier.fillMaxWidth());OutlinedButton({picker=true},Modifier.fillMaxWidth().padding(top=8.dp)){Text("Producten kiezen (${chosen.size})")}}},confirmButton={Button({save(meal,notes,chosen)}){Text("Opslaan")}},dismissButton={TextButton(dismiss){Text("Annuleren")}});if(picker)MultiProductDialog(products,{picker=false}){chosen=it;picker=false}}
+@Composable fun MultiProductDialog(products:List<Product>,dismiss:()->Unit,save:(List<Pair<Product,String>>)->Unit){val selected=remember{mutableStateMapOf<String,String>()};AlertDialog(onDismissRequest=dismiss,title={Text("Producten kiezen")},text={LazyColumn(Modifier.heightIn(max=420.dp)){items(products.sortedBy{it.name},key={it.name}){p->var q by remember(p.name){mutableStateOf(p.quantity)};Row(verticalAlignment=Alignment.CenterVertically){Checkbox(selected.containsKey(p.name),{v->if(v)selected[p.name]=q else selected.remove(p.name)});Column(Modifier.weight(1f)){Text(p.name);OutlinedTextField(q,{q=it;if(selected.containsKey(p.name))selected[p.name]=it},label={Text("Hoeveel")},singleLine=true)}}}}},confirmButton={Button({save(products.filter{selected.containsKey(it.name)}.map{it to (selected[it.name]?:"")})}){Text("Kiezen")}},dismissButton={TextButton(dismiss){Text("Annuleren")}})}
 
-@Composable
-fun GroceryRow(
-    g:Grocery,
-    isDragging:Boolean,
-    toggle:()->Unit,
-    delete:()->Unit,
-    saveQty:(String)->Unit,
-    dragEnabled:Boolean,
-    onDragStart:()->Unit,
-    onDrag:(Float)->Unit,
-    onDragEnd:()->Unit
-) {
-    var qty by remember(g.id,g.quantity){mutableStateOf(g.quantity)}
-    val dragModifier = if(dragEnabled) Modifier.pointerInput(g.id) {
-        detectDragGesturesAfterLongPress(
-            onDragStart={onDragStart()},
-            onDragEnd=onDragEnd,
-            onDragCancel=onDragEnd,
-            onDrag={change,amount->change.consume();onDrag(amount.y)}
-        )
-    } else Modifier
-    Row(
-        Modifier.fillMaxWidth().then(dragModifier).graphicsLayer { alpha=if(isDragging)0.65f else 1f }.background(if(isDragging)PaleGreen else Color.Transparent).padding(horizontal=8.dp,vertical=8.dp),
-        verticalAlignment=Alignment.CenterVertically
-    ) {
-        IconButton(toggle,modifier=Modifier.size(50.dp)){Icon(if(g.checked)Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,"Afvinken",tint=Green,modifier=Modifier.size(35.dp))}
-        Column(Modifier.weight(1f)){
-            Text(g.name,fontSize=18.sp,fontWeight=FontWeight.Medium,textDecoration=if(g.checked)TextDecoration.LineThrough else null,color=if(g.checked)Color.Gray else Ink)
-            OutlinedTextField(qty,{qty=it;saveQty(it)},label={Text("Hoeveel")},singleLine=true,modifier=Modifier.fillMaxWidth())
-        }
-        if(dragEnabled) Icon(Icons.Default.DragHandle,"Ingedrukt houden en slepen",tint=Color.Gray,modifier=Modifier.padding(horizontal=6.dp))
-        IconButton(delete){Icon(Icons.Default.DeleteOutline,"Verwijder",tint=Color.Gray)}
-    }
-}
+@Composable fun ListsScreen(store:AppStore,selectedId:Long,select:(Long)->Unit){var newList by remember{mutableStateOf(false)};var newProduct by remember{mutableStateOf(false)};var newMenu by remember{mutableStateOf(false)};LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=18.dp)){item{PageTitle("Lijsten")};item{ManageTitle("Boodschappenlijsten")};items(store.lists,key={it.id}){l->ManageRow(l.name,"${l.items.count{!it.checked}}",{select(l.id)}){if(store.lists.size>1)store.deleteList(l.id)}};item{AddRow("Nieuwe lijst"){newList=true}};item{ManageTitle("Weekmenu's")};items(store.weekMenus,key={it.id}){m->ManageRow(m.name,"7 dagen",{},if(store.weekMenus.size>1){{store.deleteWeekMenu(m.id)}}else null)};item{AddRow("Nieuw weekmenu"){newMenu=true}};item{ManageTitle("Producten")};items(store.products.sortedBy{it.name},key={it.name}){p->ManageRow(p.name,p.quantity,{}, {store.deleteProduct(p.name)})};item{AddRow("Nieuw product"){newProduct=true}}}
+    if(newList)TextDialog("Nieuwe boodschappenlijst","Naam",{newList=false}){store.addList(it);newList=false};if(newMenu)TextDialog("Nieuw weekmenu","Naam",{newMenu=false}){store.addWeekMenu(it);newMenu=false};if(newProduct)ProductDialog({newProduct=false}){n,q->store.addProduct(n,q);newProduct=false}}
+@Composable fun ManageTitle(text:String){Text(text,fontWeight=FontWeight.Bold,fontSize=21.sp,modifier=Modifier.padding(start=18.dp,top=20.dp,bottom=8.dp))}
+@Composable fun ManageRow(name:String,detail:String,onClick:()->Unit,onDelete:(()->Unit)?){ListItem(headlineContent={Text(name)},trailingContent={Row(verticalAlignment=Alignment.CenterVertically){Text(detail,color=Color.Gray);if(onDelete!=null)IconButton(onDelete){Icon(Icons.Default.DeleteOutline,null)}}},modifier=Modifier.clickable{onClick()},colors=ListItemDefaults.colors(containerColor=Color.White))}
+@Composable fun AddRow(text:String,onClick:()->Unit){ListItem(headlineContent={Text(text,color=Green,fontWeight=FontWeight.Bold)},leadingContent={Icon(Icons.Default.Add,null,tint=Green)},modifier=Modifier.clickable{onClick()},colors=ListItemDefaults.colors(containerColor=Color.Transparent))}
+@Composable fun TextDialog(title:String,label:String,dismiss:()->Unit,save:(String)->Unit){var text by remember{mutableStateOf("")};AlertDialog(onDismissRequest=dismiss,title={Text(title)},text={OutlinedTextField(text,{text=it},label={Text(label)})},confirmButton={Button({save(text.trim())},enabled=text.isNotBlank()){Text("Opslaan")}},dismissButton={TextButton(dismiss){Text("Annuleren")}})}
+@Composable fun ProductDialog(dismiss:()->Unit,save:(String,String)->Unit){var n by remember{mutableStateOf("")};var q by remember{mutableStateOf("")};AlertDialog(onDismissRequest=dismiss,title={Text("Nieuw product")},text={Column{OutlinedTextField(n,{n=it},label={Text("Product")});OutlinedTextField(q,{q=it},label={Text("Standaardhoeveelheid")})}},confirmButton={Button({save(n.trim(),q.trim())},enabled=n.isNotBlank()){Text("Opslaan")}},dismissButton={TextButton(dismiss){Text("Annuleren")}})}
+@Composable fun BottomBar(tab:Int,change:(Int)->Unit){NavigationBar(containerColor=Color.White){listOf(Triple("Boodschappen",Icons.Default.ShoppingCart,0),Triple("Weekmenu",Icons.Default.Restaurant,1),Triple("Lijsten",Icons.Default.List,2)).forEach{(t,i,n)->NavigationBarItem(tab==n,{change(n)},{Icon(i,null)},label={Text(t)},colors=NavigationBarItemDefaults.colors(indicatorColor=Pale,selectedIconColor=Green,selectedTextColor=Green))}}}
 
-@Composable
-fun ProductPicker(products:List<Product>,dismiss:()->Unit,add:(List<Pair<Product,String>>)->Unit){val selected=remember{mutableStateMapOf<String,String>()};AlertDialog(onDismissRequest=dismiss,title={Text("Kies producten")},text={LazyColumn(Modifier.heightIn(max=460.dp)){items(products.sortedBy{it.name},key={it.name}){p->var qty by remember(p.name){mutableStateOf(p.quantity)};Row(Modifier.fillMaxWidth().padding(vertical=6.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(selected.containsKey(p.name),{v->if(v)selected[p.name]=qty else selected.remove(p.name)});Column(Modifier.weight(1f)){Text(p.name,fontWeight=FontWeight.Medium);OutlinedTextField(qty,{qty=it;if(selected.containsKey(p.name))selected[p.name]=it},label={Text("Hoeveel")},singleLine=true)}}}}},confirmButton={Button({add(products.filter{selected.containsKey(it.name)}.map{it to (selected[it.name]?:it.quantity)})},enabled=selected.isNotEmpty()){Text("Toevoegen (${selected.size})")}},dismissButton={TextButton(dismiss){Text("Annuleren")}})}
-
-@Composable
-fun WeekMenuPage(store:AppStore,selectedId:Long){val list=store.lists.firstOrNull{it.id==selectedId}?:store.lists.first();LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)){item{Header("Weekmenu")};item{Text("Tik in een vak om direct te typen. Producten kun je kiezen en meteen op ${list.name} zetten.",color=Color.Gray,modifier=Modifier.padding(horizontal=20.dp,vertical=4.dp))};items(store.menu,key={it.day}){day->MenuCard(day,store.products,{m,i->store.updateMenu(day.day,m,i)},{chosen->chosen.forEach{(p,q)->store.addGrocery(list.id,p.name,q)}})}}}
-
-@Composable fun MenuCard(day:MenuDay,products:List<Product>,update:(String,String)->Unit,add:(List<Pair<Product,String>>)->Unit){var meal by remember(day.day,day.meal){mutableStateOf(day.meal)};var ingredients by remember(day.day,day.ingredients){mutableStateOf(day.ingredients)};var picker by remember{mutableStateOf(false)};Surface(Modifier.padding(horizontal=20.dp,vertical=7.dp).fillMaxWidth(),shape=RoundedCornerShape(24.dp),color=Color.White,shadowElevation=1.dp){Column(Modifier.padding(16.dp)){Text(day.day,fontWeight=FontWeight.Bold,fontSize=20.sp);OutlinedTextField(meal,{meal=it;update(meal,ingredients)},label={Text("Wat eten we?")},modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(8.dp));OutlinedTextField(ingredients,{ingredients=it;update(meal,ingredients)},label={Text("Notitie of ingrediënten")},modifier=Modifier.fillMaxWidth());OutlinedButton({picker=true},modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("Kies producten voor boodschappenlijst")}}};if(picker)ProductPicker(products,{picker=false}){add(it);picker=false}}
-
-@Composable
-fun ListsPage(store:AppStore,selectedId:Long,select:(Long)->Unit){var newList by remember{mutableStateOf(false)};var newProduct by remember{mutableStateOf(false)};LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp)){item{Header("Lijsten")};item{Row(Modifier.padding(horizontal=20.dp).fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Button({newList=true},modifier=Modifier.weight(1f)){Text("Nieuwe lijst")};OutlinedButton({newProduct=true},modifier=Modifier.weight(1f)){Text("Nieuw product")}}};item{Text("Boodschappenlijstjes",fontWeight=FontWeight.Bold,fontSize=22.sp,modifier=Modifier.padding(20.dp))};items(store.lists,key={it.id}){l->ListItem(headlineContent={Text(l.name,fontWeight=FontWeight.Bold)},supportingContent={Text("${l.items.count{!it.checked}} op lijstje")},leadingContent={Icon(Icons.Default.List,null,tint=Green)},trailingContent={if(store.lists.size>1)IconButton({store.deleteList(l.id)}){Icon(Icons.Default.DeleteOutline,null)}},modifier=Modifier.clickable{select(l.id)},colors=ListItemDefaults.colors(containerColor=if(l.id==selectedId)PaleGreen else Color.Transparent))};item{Text("Vaste producten",fontWeight=FontWeight.Bold,fontSize=22.sp,modifier=Modifier.padding(20.dp))};items(store.products.sortedByDescending{it.uses},key={it.name}){p->ListItem(headlineContent={Text(p.name)},supportingContent={Text(p.quantity.ifBlank{"Geen vaste hoeveelheid"})},trailingContent={IconButton({store.deleteProduct(p.name)}){Icon(Icons.Default.DeleteOutline,null)}},colors=ListItemDefaults.colors(containerColor=Color.Transparent))}}
-    if(newList)NameDialog("Nieuwe lijst","Naam",{newList=false}){store.addList(it);newList=false};if(newProduct)ProductDialog({newProduct=false}){n,q->store.addProduct(n,q);newProduct=false}}
-
-@Composable fun NameDialog(title:String,label:String,dismiss:()->Unit,save:(String)->Unit){var text by remember{mutableStateOf("")};AlertDialog(onDismissRequest=dismiss,title={Text(title)},text={OutlinedTextField(text,{text=it},label={Text(label)},singleLine=true)},confirmButton={Button({save(text.trim())},enabled=text.isNotBlank()){Text("Opslaan")}},dismissButton={TextButton(dismiss){Text("Annuleren")}})}
-@Composable fun ProductDialog(dismiss:()->Unit,save:(String,String)->Unit){var name by remember{mutableStateOf("")};var qty by remember{mutableStateOf("")};AlertDialog(onDismissRequest=dismiss,title={Text("Nieuw product")},text={Column{OutlinedTextField(name,{name=it},label={Text("Product")});OutlinedTextField(qty,{qty=it},label={Text("Vaste hoeveelheid, bijvoorbeeld 1 pak")})}},confirmButton={Button({save(name.trim(),qty.trim())},enabled=name.isNotBlank()){Text("Opslaan")}},dismissButton={TextButton(dismiss){Text("Annuleren")}})}
-@Composable fun BottomBar(tab:Int,change:(Int)->Unit){Surface(color=Color.White,shadowElevation=10.dp,shape=RoundedCornerShape(topStart=28.dp,topEnd=28.dp)){NavigationBar(containerColor=Color.Transparent){listOf(Triple("Boodschappen",Icons.Default.ShoppingBasket,0),Triple("Weekmenu",Icons.Default.CalendarMonth,1),Triple("Lijsten",Icons.Default.Checklist,2)).forEach{(label,icon,i)->NavigationBarItem(tab==i,{change(i)},{Icon(icon,null)},label={Text(label)},colors=NavigationBarItemDefaults.colors(selectedIconColor=Green,selectedTextColor=Green,indicatorColor=PaleGreen))}}}}
-
-class AppStore(private val context:Context){
-    private val prefs=context.getSharedPreferences("grocery_v2",Context.MODE_PRIVATE)
-    var lists by mutableStateOf<List<GroceryList>>(emptyList());private set
-    var products by mutableStateOf<List<Product>>(emptyList());private set
-    var menu by mutableStateOf<List<MenuDay>>(emptyList());private set
-    init{load()}
-    fun addList(name:String):Long{val id=System.currentTimeMillis();lists=lists+GroceryList(id,name);save();return id}
-    fun deleteList(id:Long){lists=lists.filterNot{it.id==id};save()}
-    fun addProduct(name:String,qty:String=""){if(products.none{it.name.equals(name,true)})products=products+Product(name,0,qty);save()}
-    fun deleteProduct(name:String){products=products.filterNot{it.name==name};save()}
-    fun addGrocery(listId:Long,name:String,qty:String){val clean=name.trim();if(clean.isBlank())return;val g=Grocery(System.nanoTime(),clean,qty.trim());lists=lists.map{if(it.id==listId)it.copy(items=it.items+g)else it};val found=products.firstOrNull{it.name.equals(clean,true)};products=if(found==null)products+Product(clean,1,qty.trim())else products.map{if(it.name.equals(clean,true))it.copy(uses=it.uses+1,quantity=qty.trim().ifBlank{it.quantity})else it};save()}
-    private fun locate(id:Long)=lists.firstNotNullOfOrNull{l->l.items.firstOrNull{it.id==id}?.let{l.id}}
-    fun toggleGrocery(id:Long,unused:Long){val listId=locate(id)?:return;lists=lists.map{l->if(l.id==listId)l.copy(items=l.items.map{if(it.id==id)it.copy(checked=!it.checked)else it})else l};save()}
-    fun deleteGrocery(id:Long,unused:Long){val listId=locate(id)?:return;lists=lists.map{if(it.id==listId)it.copy(items=it.items.filterNot{g->g.id==id})else it};save()}
-    fun updateQuantity(listId:Long,id:Long,q:String){lists=lists.map{if(it.id==listId)it.copy(items=it.items.map{g->if(g.id==id)g.copy(quantity=q)else g})else it};save()}
-    fun moveGrocery(listId:Long,id:Long,d:Int){lists=lists.map{l->if(l.id!=listId)l else{val m=l.items.toMutableList();val i=m.indexOfFirst{it.id==id};if(i<0)l else{val j=(i+d).coerceIn(0,m.lastIndex);if(i!=j){val x=m.removeAt(i);m.add(j,x)};l.copy(items=m)}}};save()}
-    fun clearChecked(listId:Long){lists=lists.map{if(it.id==listId)it.copy(items=it.items.filterNot{g->g.checked})else it};save()}
-    fun updateMenu(day:String,meal:String,ingredients:String){menu=menu.map{if(it.day==day)it.copy(meal=meal,ingredients=ingredients)else it};save()}
-    private fun save(){val root=JSONObject();root.put("lists",JSONArray().apply{lists.forEach{l->put(JSONObject().put("id",l.id).put("name",l.name).put("items",JSONArray().apply{l.items.forEach{g->put(JSONObject().put("id",g.id).put("name",g.name).put("quantity",g.quantity).put("checked",g.checked))}}))}});root.put("products",JSONArray().apply{products.forEach{put(JSONObject().put("name",it.name).put("uses",it.uses).put("quantity",it.quantity))}});root.put("menu",JSONArray().apply{menu.forEach{put(JSONObject().put("day",it.day).put("meal",it.meal).put("ingredients",it.ingredients))}});prefs.edit().putString("data",root.toString()).apply()}
-    private fun load(){try{prefs.getString("data",null)?.let{raw->val root=JSONObject(raw);lists=(0 until root.getJSONArray("lists").length()).map{i->val o=root.getJSONArray("lists").getJSONObject(i);val a=o.getJSONArray("items");GroceryList(o.getLong("id"),o.getString("name"),(0 until a.length()).map{j->val g=a.getJSONObject(j);Grocery(g.getLong("id"),g.getString("name"),g.optString("quantity"),g.optBoolean("checked"))})};products=(0 until root.getJSONArray("products").length()).map{i->val p=root.getJSONArray("products").getJSONObject(i);Product(p.getString("name"),p.optInt("uses"),p.optString("quantity"))};menu=(0 until root.getJSONArray("menu").length()).map{i->val m=root.getJSONArray("menu").getJSONObject(i);MenuDay(m.getString("day"),m.optString("meal"),m.optString("ingredients"))}}}catch(_:Exception){}
-        if(lists.isEmpty())lists=listOf(GroceryList(1,"Weekboodschappen",listOf(Grocery(11,"Melk","1 pak"),Grocery(12,"Brood","1 brood"))))
-        if(products.isEmpty())products=listOf(Product("Melk",8,"1 pak"),Product("Brood",7,"1 brood"),Product("Bananen",6,"6 stuks"),Product("Eieren",5,"10 stuks"),Product("Kaas",4,"1 stuk"),Product("Yoghurt",3,"1 liter"),Product("Pasta",2,"1 pak"),Product("Tomaten",1,"500 gr"))
-        if(menu.isEmpty())menu=listOf("Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag","Zondag").map{MenuDay(it)}
-    }
+class AppStore(private val c:Context){private val p=c.getSharedPreferences("grocery_v2",Context.MODE_PRIVATE);var lists by mutableStateOf<List<GroceryList>>(emptyList());private set;var products by mutableStateOf<List<Product>>(emptyList());private set;var weekMenus by mutableStateOf<List<WeekMenu>>(emptyList());private set
+    init{load()};fun addList(n:String):Long{val id=System.currentTimeMillis();lists=lists+GroceryList(id,n);save();return id};fun deleteList(id:Long){lists=lists.filterNot{it.id==id};save()};fun addProduct(n:String,q:String){if(products.none{it.name.equals(n,true)})products=products+Product(n,0,q);save()};fun deleteProduct(n:String){products=products.filterNot{it.name==n};save()};fun addWeekMenu(n:String){weekMenus=weekMenus+WeekMenu(System.currentTimeMillis(),n,dayNames.map{MenuDay(it)});save()};fun deleteWeekMenu(id:Long){weekMenus=weekMenus.filterNot{it.id==id};save()}
+    fun addGrocery(lid:Long,n:String,q:String){if(n.isBlank())return;val g=Grocery(System.nanoTime(),n.trim(),q.trim());lists=lists.map{if(it.id==lid)it.copy(items=it.items+g)else it};val old=products.firstOrNull{it.name.equals(n,true)};products=if(old==null)products+Product(n.trim(),1,q.trim())else products.map{if(it==old)it.copy(uses=it.uses+1,quantity=q.ifBlank{it.quantity})else it};save()}
+    private fun find(id:Long)=lists.firstNotNullOfOrNull{l->l.items.firstOrNull{it.id==id}?.let{l.id}};fun toggle(id:Long){val l=find(id)?:return;lists=lists.map{if(it.id==l)it.copy(items=it.items.map{g->if(g.id==id)g.copy(checked=!g.checked)else g})else it};save()};fun remove(id:Long){val l=find(id)?:return;lists=lists.map{if(it.id==l)it.copy(items=it.items.filterNot{g->g.id==id})else it};save()};fun setQuantity(id:Long,q:String){val l=find(id)?:return;lists=lists.map{if(it.id==l)it.copy(items=it.items.map{g->if(g.id==id)g.copy(quantity=q)else g})else it};save()};fun move(lid:Long,id:Long,from:Int,to:Int){lists=lists.map{l->if(l.id!=lid)l else{val open=l.items.filterNot{it.checked}.toMutableList();val done=l.items.filter{it.checked};val actual=open.indexOfFirst{it.id==id};if(actual>=0){val x=open.removeAt(actual);open.add(to.coerceIn(0,open.size),x)};l.copy(items=open+done)}};save()};fun clearDone(lid:Long){lists=lists.map{if(it.id==lid)it.copy(items=it.items.filterNot{g->g.checked})else it};save()};fun updateDay(mid:Long,day:String,meal:String,notes:String){weekMenus=weekMenus.map{m->if(m.id==mid)m.copy(days=m.days.map{if(it.day==day)it.copy(meal=meal,ingredients=notes)else it})else m};save()}
+    private fun save(){val r=JSONObject();r.put("lists",JSONArray().apply{lists.forEach{l->put(JSONObject().put("id",l.id).put("name",l.name).put("items",JSONArray().apply{l.items.forEach{g->put(JSONObject().put("id",g.id).put("name",g.name).put("quantity",g.quantity).put("checked",g.checked))}}))}});r.put("products",JSONArray().apply{products.forEach{put(JSONObject().put("name",it.name).put("uses",it.uses).put("quantity",it.quantity))}});r.put("weekMenus",JSONArray().apply{weekMenus.forEach{m->put(JSONObject().put("id",m.id).put("name",m.name).put("days",JSONArray().apply{m.days.forEach{d->put(JSONObject().put("day",d.day).put("meal",d.meal).put("ingredients",d.ingredients))}}))}});p.edit().putString("data_v6",r.toString()).apply()}
+    private fun load(){try{p.getString("data_v6",null)?.let{raw->val r=JSONObject(raw);val la=r.getJSONArray("lists");lists=(0 until la.length()).map{i->val o=la.getJSONObject(i);val a=o.getJSONArray("items");GroceryList(o.getLong("id"),o.getString("name"),(0 until a.length()).map{j->val g=a.getJSONObject(j);Grocery(g.getLong("id"),g.getString("name"),g.optString("quantity"),g.optBoolean("checked"))})};val pa=r.getJSONArray("products");products=(0 until pa.length()).map{i->val o=pa.getJSONObject(i);Product(o.getString("name"),o.optInt("uses"),o.optString("quantity"))};val ma=r.getJSONArray("weekMenus");weekMenus=(0 until ma.length()).map{i->val o=ma.getJSONObject(i);val a=o.getJSONArray("days");WeekMenu(o.getLong("id"),o.getString("name"),(0 until a.length()).map{j->val d=a.getJSONObject(j);MenuDay(d.getString("day"),d.optString("meal"),d.optString("ingredients"))})}}}catch(_:Exception){};if(lists.isEmpty())lists=listOf(GroceryList(1,"Weekboodschappen",listOf(Grocery(11,"Melk","1 pak"),Grocery(12,"Brood","1 brood"))));if(products.isEmpty())products=listOf(Product("Melk",8,"1 pak"),Product("Brood",7,"1 brood"),Product("Gehakt",6,"500 gr"),Product("Bananen",5,"6 stuks"));if(weekMenus.isEmpty())weekMenus=listOf(WeekMenu(1,"Deze week",dayNames.map{MenuDay(it)}))}
 }
